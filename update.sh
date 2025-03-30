@@ -20,6 +20,9 @@ if [ "$LOCAL_SHA" != "$REMOTE_SHA" ]; then
     echo "$(date): Update detected. Pulling latest..."
     git reset --hard origin/main
 
+    # re-run the setup script in case any dependencies were updated
+    ./setup.sh
+
     # restart the transmission service
     sudo systemctl restart "$TRANSMISSION_SERVICE_NAME"
     echo "$(date): Restarted $TRANSMISSION_SERVICE_NAME."
