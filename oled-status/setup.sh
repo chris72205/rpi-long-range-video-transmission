@@ -1,8 +1,8 @@
 #!/bin/bash
 
-if ! cmp -s oled-status.service /etc/systemd/system/oled-status.service; then
+if ! cmp -s ~/rpi-long-range-video-transmission/oled-status/oled-status.service /etc/systemd/system/oled-status.service; then
     echo "Copying OLED status service file..."
-    sudo cp oled-status.service /etc/systemd/system/
+    sudo cp ~/rpi-long-range-video-transmission/oled-status/oled-status.service /etc/systemd/system/
 
     echo "Reloading systemd daemon..."
     sudo systemctl daemon-reexec

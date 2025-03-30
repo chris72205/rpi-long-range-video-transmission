@@ -3,9 +3,9 @@
 DEFAULT_SSID="Raspberry Pi AP"
 DEFAULT_PASSWORD="raspberry"
 
-if ! cmp -s video-transmission.service /etc/systemd/system/video-transmission.service; then
+if ! cmp -s ~/rpi-long-range-video-transmission/video-transmission.service /etc/systemd/system/video-transmission.service; then
     echo "Copying video transmission service file..."
-    sudo cp video-transmission.service /etc/systemd/system/
+    sudo cp ~/rpi-long-range-video-transmission/video-transmission/video-transmission.service /etc/systemd/system/
 
     echo "Reloading systemd daemon..."
     sudo systemctl daemon-reexec
