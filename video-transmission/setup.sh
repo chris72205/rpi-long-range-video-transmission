@@ -31,4 +31,4 @@ else
     echo "WiFi adapter already setup; skipping"
 fi
 
-echo "Done!"
+echo "Done setting up video transmission service!"

@@ -17,4 +17,4 @@ else
     echo "OLED status service already setup and no file changes; skipping"
 fi
 
-echo "Done!"
+echo "Done setting up OLED status service!"

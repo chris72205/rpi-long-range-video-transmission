@@ -12,4 +12,4 @@ echo "Setting up OLED status service..."
 echo "Setting up video transmission service..."
 ./video-transmission/setup.sh
 
-echo "Done!"
+echo "Done setting up services!"
