@@ -7,7 +7,7 @@ The services below assume that you have cloned this repo to the Raspberry Pi at 
 This is responsible for setting up an AP and running a server which broadcasts images from the video stream. The server is accessible at port 8080 of the device IP.
 
 ### Setup
-- run `./video-transmission/setup.sh` to establish the services and configure the WiFi adapter
+- run `./video-transmission/setup.sh` to establish the services and configure the WiFi adapter (use env vars `DEFAULT_SSID` and `DEFAULT_PASSWORD` to customize SSID and password)
 - add the `./update.sh` script to the crontab of the Raspberry Pi, this will ensure it periodically checks for updates when internet is available
 - run `update.sh` to ensure everything is up to date
 - visit localhost:8080 on the network (local or Raspberry Pi AP) to verify it's working as expected
