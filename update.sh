@@ -21,7 +21,7 @@ if [ "$LOCAL_SHA" != "$REMOTE_SHA" ]; then
     git reset --hard origin/main
 
     # re-run the setup script in case any dependencies were updated
-    ./setup.sh
+    $REPO_DIR/setup.sh
 
     # restart the transmission service
     sudo systemctl restart "$TRANSMISSION_SERVICE_NAME"
