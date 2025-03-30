@@ -1,0 +1,13 @@
+[Unit]
+Description=Video Transmission Service
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /home/chris/rpi-long-range-video-transmission/video-transmission/server.py
+WorkingDirectory=/home/chris/rpi-long-range-video-transmission/video-transmission
+Restart=always
+User=chris
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

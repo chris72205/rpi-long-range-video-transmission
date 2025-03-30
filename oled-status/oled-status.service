@@ -1,0 +1,14 @@
+[Unit]
+Description=OLED Network Status Display
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 /home/chris/rpi-long-range-video-transmission/oled-status/service.py
+WorkingDirectory=/home/chris/rpi-long-range-video-transmission/oled-status
+Restart=always
+User=chris
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
