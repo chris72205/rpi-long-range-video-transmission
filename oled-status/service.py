@@ -18,7 +18,7 @@ i2c = busio.I2C(board.SCL, board.SDA)
 oled = SSD1306_I2C(WIDTH, HEIGHT, i2c)
 font = ImageFont.load_default()
 
-
+# Drawing canvas
 image = Image.new("1", (WIDTH, HEIGHT))
 draw = ImageDraw.Draw(image)
 
@@ -51,7 +51,7 @@ def get_ssid(iface, mode):
             out = subprocess.check_output(f"iw dev {iface} info", shell=True).decode()
             for line in out.splitlines():
                 if "ssid" in line.lower():
-                    return line.strip().split()[-1]
+                    return "AP: " +line.strip().split()[-1]
         else:
             out = subprocess.check_output(f"iwgetid {iface} -r", shell=True).decode().strip()
             return out if out else "No SSID"
@@ -69,36 +69,37 @@ def get_client_count(iface):
 
 def get_git_short_sha():
     try:
-        sha = subprocess.check_output("git rev-parse --short HEAD", shell=True, cwd="/home/pi/oled-status").decode().strip()
+        sha = subprocess.check_output("git rev-parse --short HEAD", shell=True, cwd="/home/chris/rpi-long-range-video-transmission").decode().strip()
         return f"[{sha}]"
-    except:
-        return ""
+    except Exception as e:
+        print(f"Error getting SHA: {e}")
+        return "unknown"
 
 def draw_status(lines, sha):
-    line_lengths = [len(line) for line in lines]
-    min_index = line_lengths.index(min(line_lengths))
-
-    if sha:
-        max_chars = WIDTH // 6 
-        space_left = max_chars - len(lines[min_index])
-        if space_left > len(sha) + 1:
-            lines[min_index] += " " * (space_left - len(sha)) + sha
-
     draw.rectangle((0, 0, WIDTH, HEIGHT), outline=0, fill=0)
     for i, line in enumerate(lines):
         draw.text((0, i * 10), line[:21], font=font, fill=255)
+
+    if sha:
+        # Estimate right-aligned x-position
+        text_width = len(sha) * 6  # ~6px per char in default font
+        x_pos = WIDTH - text_width
+        draw.text((x_pos, HEIGHT - 10), sha, font=font, fill=255)
+    else:
+        draw.text((0, HEIGHT - 10), "No SHA", font=font, fill=255)
+
     oled.image(image)
     oled.show()
 
 while True:
     status_lines = []
-    for iface in INTERFACES[:HEIGHT // 10]:
+    for iface in INTERFACES[:2]:  # Only room for 2 lines
         mode = get_mode(iface)
         ssid = get_ssid(iface, mode)
 
         if mode == "AP":
             clients = get_client_count(iface)
-            line = f"{ssid}; {clients} client{'s' if clients != 1 else ''}"
+            line = f"{ssid} {clients}"
         elif mode == "Client":
             ip = get_ip(iface) or "No IP"
             line = f"{ssid}; {ip}"
