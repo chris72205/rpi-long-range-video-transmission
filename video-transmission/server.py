@@ -10,18 +10,21 @@ import json
 
 picam2 = Picamera2()
 
-def create_camera_config(width, height):
-    return picam2.create_still_configuration(
+def create_initial_config(width, height, exposure_time=50000, analogue_gain=2.0):
+    config = picam2.create_still_configuration(
         main={"size": (width, height)},
         controls={
-            "FrameDurationLimits": (33333, 33333),
-            "ExposureTime": 50000,
-            "AnalogueGain": 2.0,
+            "ExposureTime": exposure_time,
+            "AnalogueGain": analogue_gain,
         }
     )
+    print("Initial camera config:")
+    print(f"  Size: {config['main']['size']}")
+    print(f"  Controls: {config['controls']}")
+    return config
 
-# Initialize with default size
-camera_config = create_camera_config(2048, 1536)
+# Initialize with default settings
+camera_config = create_initial_config(2048, 1536)
 picam2.configure(camera_config)
 picam2.start()
 
@@ -31,11 +34,23 @@ async def index(request):
     return web.FileResponse(Path(__file__).parent / "index.html")
 
 async def websocket_handler(request):
+    global camera_config
+    
     ws = web.WebSocketResponse()
     await ws.prepare(request)
 
     connected_clients.add(ws)
     print("Client connected")
+
+    # Send initial camera settings to the new client
+    settings_info = {
+        'type': 'camera_settings',
+        'width': camera_config['main']['size'][0],
+        'height': camera_config['main']['size'][1],
+        'exposure_time': camera_config['controls']['ExposureTime'],
+        'analogue_gain': camera_config['controls']['AnalogueGain']
+    }
+    await ws.send_json(settings_info)
 
     try:
         async for msg in ws:
@@ -45,17 +60,66 @@ async def websocket_handler(request):
                     if data.get('type') == 'set_size':
                         width = int(data['width'])
                         height = int(data['height'])
-                        global camera_config
-                        camera_config = create_camera_config(width, height)
+                        print("Updating camera size:")
+                        print(f"  Current size: {camera_config['main']['size']}")
+                        print(f"  New size: ({width}, {height})")
+                        
+                        # Update size in current config
+                        camera_config['main']['size'] = (width, height)
                         picam2.stop()
                         picam2.configure(camera_config)
                         picam2.start()
+                        
                         print(f"Camera resolution changed to {width}x{height}")
-                        # Send resolution info after change
+                        # Send camera settings after change
                         await ws.send_json({
-                            'type': 'resolution_info',
+                            'type': 'camera_settings',
                             'width': width,
-                            'height': height
+                            'height': height,
+                            'exposure_time': camera_config['controls']['ExposureTime'],
+                            'analogue_gain': camera_config['controls']['AnalogueGain']
+                        })
+                    elif data.get('type') == 'set_exposure':
+                        exposure_time = int(data['exposure_time'])
+                        print("Updating exposure time:")
+                        print(f"  Current exposure: {camera_config['controls']['ExposureTime']}")
+                        print(f"  New exposure: {exposure_time}")
+                        
+                        # Update exposure in current config
+                        camera_config['controls']['ExposureTime'] = exposure_time
+                        picam2.stop()
+                        picam2.configure(camera_config)
+                        picam2.start()
+                        
+                        print(f"Exposure time changed to {exposure_time}μs")
+                        # Send camera settings after change
+                        await ws.send_json({
+                            'type': 'camera_settings',
+                            'width': camera_config['main']['size'][0],
+                            'height': camera_config['main']['size'][1],
+                            'exposure_time': exposure_time,
+                            'analogue_gain': camera_config['controls']['AnalogueGain']
+                        })
+                    elif data.get('type') == 'set_gain':
+                        analogue_gain = float(data['analogue_gain'])
+                        print("Updating analogue gain:")
+                        print(f"  Current gain: {camera_config['controls']['AnalogueGain']}")
+                        print(f"  New gain: {analogue_gain}")
+                        
+                        # Update gain in current config
+                        camera_config['controls']['AnalogueGain'] = analogue_gain
+                        picam2.stop()
+                        picam2.configure(camera_config)
+                        picam2.start()
+                        
+                        print(f"Analogue gain changed to {analogue_gain}")
+                        # Send camera settings after change
+                        await ws.send_json({
+                            'type': 'camera_settings',
+                            'width': camera_config['main']['size'][0],
+                            'height': camera_config['main']['size'][1],
+                            'exposure_time': camera_config['controls']['ExposureTime'],
+                            'analogue_gain': analogue_gain
                         })
                 except Exception as e:
                     print(f"Error processing message: {e}")
@@ -80,16 +144,18 @@ async def broadcast_frames():
         try:
             start_time = current_milliseconds()
             
-            # Send resolution info every 5 seconds
+            # Send camera settings every 5 seconds
             if start_time - last_resolution_info > 5000:
-                resolution_info = {
-                    'type': 'resolution_info',
+                settings_info = {
+                    'type': 'camera_settings',
                     'width': camera_config['main']['size'][0],
-                    'height': camera_config['main']['size'][1]
+                    'height': camera_config['main']['size'][1],
+                    'exposure_time': camera_config['controls']['ExposureTime'],
+                    'analogue_gain': camera_config['controls']['AnalogueGain']
                 }
                 if connected_clients:
                     await asyncio.gather(
-                        *[ws.send_json(resolution_info) for ws in connected_clients],
+                        *[ws.send_json(settings_info) for ws in connected_clients],
                         return_exceptions=True
                     )
                 last_resolution_info = start_time
