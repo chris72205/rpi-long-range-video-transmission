@@ -50,8 +50,10 @@ def get_ssid(iface, mode):
         if mode == "AP":
             out = subprocess.check_output(f"iw dev {iface} info", shell=True).decode()
             for line in out.splitlines():
-                if "ssid" in line.lower():
-                    return "AP: " +line.strip().split()[-1]
+                line = line.strip()
+                if line.lower().startswith("ssid "):
+                    ssid = line[5:]
+                    return "AP: " + ssid
         else:
             out = subprocess.check_output(f"iwgetid {iface} -r", shell=True).decode().strip()
             return out if out else "No SSID"
