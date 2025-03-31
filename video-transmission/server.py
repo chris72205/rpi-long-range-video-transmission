@@ -10,6 +10,12 @@ import json
 
 picam2 = Picamera2()
 
+# Debug mode settings
+DEBUG_MODE = False
+DEBUG_QUALITY = 30  # Lower JPEG quality for debug mode
+DEBUG_WIDTH = 640   # Smaller size for debug mode
+DEBUG_HEIGHT = 480  # 4:3 aspect ratio
+
 def create_initial_config(width, height, exposure_time=50000, analogue_gain=2.0):
     config = picam2.create_still_configuration(
         main={"size": (width, height)},
@@ -34,7 +40,7 @@ async def index(request):
     return web.FileResponse(Path(__file__).parent / "index.html")
 
 async def websocket_handler(request):
-    global camera_config
+    global camera_config, DEBUG_MODE
     
     ws = web.WebSocketResponse()
     await ws.prepare(request)
@@ -48,7 +54,8 @@ async def websocket_handler(request):
         'width': camera_config['main']['size'][0],
         'height': camera_config['main']['size'][1],
         'exposure_time': camera_config['controls']['ExposureTime'],
-        'analogue_gain': camera_config['controls']['AnalogueGain']
+        'analogue_gain': camera_config['controls']['AnalogueGain'],
+        'debug_mode': DEBUG_MODE
     }
     await ws.send_json(settings_info)
 
@@ -77,7 +84,8 @@ async def websocket_handler(request):
                             'width': width,
                             'height': height,
                             'exposure_time': camera_config['controls']['ExposureTime'],
-                            'analogue_gain': camera_config['controls']['AnalogueGain']
+                            'analogue_gain': camera_config['controls']['AnalogueGain'],
+                            'debug_mode': DEBUG_MODE
                         })
                     elif data.get('type') == 'set_exposure':
                         exposure_time = int(data['exposure_time'])
@@ -98,7 +106,8 @@ async def websocket_handler(request):
                             'width': camera_config['main']['size'][0],
                             'height': camera_config['main']['size'][1],
                             'exposure_time': exposure_time,
-                            'analogue_gain': camera_config['controls']['AnalogueGain']
+                            'analogue_gain': camera_config['controls']['AnalogueGain'],
+                            'debug_mode': DEBUG_MODE
                         })
                     elif data.get('type') == 'set_gain':
                         analogue_gain = float(data['analogue_gain'])
@@ -119,7 +128,20 @@ async def websocket_handler(request):
                             'width': camera_config['main']['size'][0],
                             'height': camera_config['main']['size'][1],
                             'exposure_time': camera_config['controls']['ExposureTime'],
-                            'analogue_gain': analogue_gain
+                            'analogue_gain': analogue_gain,
+                            'debug_mode': DEBUG_MODE
+                        })
+                    elif data.get('type') == 'toggle_debug':
+                        DEBUG_MODE = not DEBUG_MODE
+                        print(f"Debug mode {'enabled' if DEBUG_MODE else 'disabled'}")
+                        # Send updated debug mode state
+                        await ws.send_json({
+                            'type': 'camera_settings',
+                            'width': camera_config['main']['size'][0],
+                            'height': camera_config['main']['size'][1],
+                            'exposure_time': camera_config['controls']['ExposureTime'],
+                            'analogue_gain': camera_config['controls']['AnalogueGain'],
+                            'debug_mode': DEBUG_MODE
                         })
                 except Exception as e:
                     print(f"Error processing message: {e}")
@@ -151,7 +173,8 @@ async def broadcast_frames():
                     'width': camera_config['main']['size'][0],
                     'height': camera_config['main']['size'][1],
                     'exposure_time': camera_config['controls']['ExposureTime'],
-                    'analogue_gain': camera_config['controls']['AnalogueGain']
+                    'analogue_gain': camera_config['controls']['AnalogueGain'],
+                    'debug_mode': DEBUG_MODE
                 }
                 if connected_clients:
                     await asyncio.gather(
@@ -164,9 +187,16 @@ async def broadcast_frames():
             
             img = Image.fromarray(frame).rotate(180)
             
+            # In debug mode, resize the image to a smaller size
+            if DEBUG_MODE:
+                img = img.resize((DEBUG_WIDTH, DEBUG_HEIGHT), Image.Resampling.LANCZOS)
+            
             buffer.seek(0)
             buffer.truncate()
-            img.save(buffer, format='JPEG', quality=jpeg_quality, optimize=True)
+            # Use different quality settings based on debug mode
+            img.save(buffer, format='JPEG', 
+                    quality=DEBUG_QUALITY if DEBUG_MODE else jpeg_quality, 
+                    optimize=True)
             encoded = base64.b64encode(buffer.getvalue()).decode('utf-8')
             data_uri = f"data:image/jpeg;base64,{encoded}"
 
