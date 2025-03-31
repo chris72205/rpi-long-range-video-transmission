@@ -43,6 +43,143 @@
     #error {
       color: red;
     }
+    .resolution-control {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-bottom: 5px;
+    }
+    .resolution-control input {
+      width: 60px;
+      padding: 2px;
+    }
+    .resolution-control button {
+      background: #444;
+      color: white;
+      border: none;
+      padding: 2px 8px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .resolution-control button:hover {
+      background: #666;
+    }
+    .resolution-info {
+      font-size: 0.9em;
+      color: #aaa;
+      margin-top: 2px;
+    }
+    .current-resolution {
+      font-size: 0.9em;
+      color: #0f0;
+      margin-top: 2px;
+    }
+    .camera-control {
+      margin: 10px 0;
+    }
+    .camera-control label {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 0.9em;
+    }
+    .camera-control input[type="range"] {
+      width: 200px;
+      margin-right: 10px;
+    }
+    .camera-control .value-display {
+      display: inline-block;
+      min-width: 60px;
+      color: #0f0;
+    }
+    .camera-control .loading {
+      display: inline-block;
+      min-width: 60px;
+      color: #888;
+      font-style: italic;
+    }
+    .debug-mode {
+      background: #444;
+      color: #ff0;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    .debug-mode:hover {
+      background: #666;
+    }
+    .debug-mode.active {
+      background: #660;
+      color: #ff0;
+    }
+    .settings-panel {
+      max-height: 500px;
+      overflow: hidden;
+      transition: max-height 0.3s ease-out;
+    }
+    .settings-panel.collapsed {
+      max-height: 0;
+    }
+    .toggle-settings {
+      background: #444;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .toggle-settings:hover {
+      background: #666;
+    }
+    .toggle-settings .arrow {
+      transition: transform 0.3s ease;
+    }
+    .toggle-settings.collapsed .arrow {
+      transform: rotate(-90deg);
+    }
+    .tooltip {
+      position: relative;
+      display: inline-block;
+      margin-left: 5px;
+      cursor: help;
+    }
+    .tooltip .tooltip-text {
+      visibility: hidden;
+      width: 250px;
+      background-color: rgba(0, 0, 0, 0.8);
+      color: #fff;
+      text-align: left;
+      border-radius: 6px;
+      padding: 8px;
+      position: absolute;
+      z-index: 1;
+      bottom: 125%;
+      left: 50%;
+      transform: translateX(-50%);
+      opacity: 0;
+      transition: opacity 0.3s;
+      font-size: 0.8em;
+      line-height: 1.4;
+    }
+    .tooltip:hover .tooltip-text {
+      visibility: visible;
+      opacity: 1;
+    }
+    .tooltip .tooltip-text::after {
+      content: "";
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      margin-left: -5px;
+      border-width: 5px;
+      border-style: solid;
+      border-color: rgba(0, 0, 0, 0.8) transparent transparent transparent;
+    }
   </style>
 </head>
 <body>
@@ -50,8 +187,47 @@
   <div id="hud">
     <div>📶 Status: <span id="status">Connecting...</span></div>
     <div>⏱ FPS: <span id="fps">0</span></div>
-    <button id="reconnect">Reconnect</button>
-    <div id="error"></div>
+    <div class="current-resolution">
+      Current Resolution: <span id="currentResolution">-</span>
+    </div>
+    <button id="toggleSettings" class="toggle-settings collapsed">
+      <span class="arrow">▶</span> Camera Settings
+    </button>
+    <div id="settingsPanel" class="settings-panel collapsed">
+      <div class="resolution-control">
+        <label>Width:</label>
+        <input type="number" id="width" value="2048" min="640" max="4096" step="32">
+        <button id="setResolution">Set Resolution</button>
+      </div>
+      <div class="resolution-info">
+        Height will be automatically calculated to maintain 4:3 aspect ratio
+      </div>
+      <div class="camera-control">
+        <label>
+          Exposure Time: <span id="exposureValue" class="loading">Loading...</span>μs
+          <span class="tooltip">ℹ️
+            <span class="tooltip-text">
+              Controls how long the sensor is exposed to light. Longer exposure times let in more light but can cause motion blur. Shorter times reduce blur but may make the image darker.
+            </span>
+          </span>
+        </label>
+        <input type="range" id="exposure" min="1000" max="100000" step="1000" value="50000" disabled>
+      </div>
+      <div class="camera-control">
+        <label>
+          Analogue Gain: <span id="gainValue" class="loading">Loading...</span>x
+          <span class="tooltip">ℹ️
+            <span class="tooltip-text">
+              Amplifies the signal from the sensor. Higher gain makes the image brighter but can introduce more noise. Lower gain produces cleaner images but may be darker.
+            </span>
+          </span>
+        </label>
+        <input type="range" id="gain" min="1.0" max="8.0" step="0.1" value="2.0" disabled>
+      </div>
+      <button id="debugMode" class="debug-mode">Debug Mode (Low Latency)</button>
+      <button id="reconnect">Reconnect</button>
+      <div id="error"></div>
+    </div>
   </div>
 
   <script>
@@ -60,10 +236,36 @@
     const fpsSpan = document.getElementById("fps");
     const errorDiv = document.getElementById("error");
     const reconnectBtn = document.getElementById("reconnect");
+    const widthInput = document.getElementById("width");
+    const setResolutionBtn = document.getElementById("setResolution");
+    const currentResolutionSpan = document.getElementById("currentResolution");
+    const exposureSlider = document.getElementById("exposure");
+    const exposureValue = document.getElementById("exposureValue");
+    const gainSlider = document.getElementById("gain");
+    const gainValue = document.getElementById("gainValue");
+    const debugModeBtn = document.getElementById("debugMode");
+    const toggleSettingsBtn = document.getElementById("toggleSettings");
+    const settingsPanel = document.getElementById("settingsPanel");
 
     let ws;
     let frameTimes = [];
     let reconnectTimeout;
+    let updateTimeout;
+    let settingsReceived = false;
+    let debugMode = false;
+    let settingsCollapsed = true;
+
+    function toggleSettings() {
+      settingsCollapsed = !settingsCollapsed;
+      settingsPanel.classList.toggle('collapsed', settingsCollapsed);
+      toggleSettingsBtn.classList.toggle('collapsed', settingsCollapsed);
+      toggleSettingsBtn.querySelector('.arrow').textContent = settingsCollapsed ? '▶' : '▼';
+    }
+
+    function calculateHeight(width) {
+      // Maintain 4:3 aspect ratio
+      return Math.round((width * 3) / 4);
+    }
 
     function updateFPS() {
       const now = performance.now();
@@ -71,9 +273,108 @@
       fpsSpan.textContent = (frameTimes.length / 5).toFixed(1);
     }
 
+    function updateCurrentResolution(width, height) {
+      currentResolutionSpan.textContent = `${width}×${height}`;
+    }
+
+    function updateCameraSettings(data) {
+      if (!settingsReceived) {
+        settingsReceived = true;
+        exposureSlider.disabled = false;
+        gainSlider.disabled = false;
+      }
+      
+      updateCurrentResolution(data.width, data.height);
+      exposureSlider.value = data.exposure_time;
+      exposureValue.textContent = data.exposure_time;
+      exposureValue.classList.remove('loading');
+      gainSlider.value = data.analogue_gain;
+      gainValue.textContent = data.analogue_gain.toFixed(1);
+      gainValue.classList.remove('loading');
+      
+      // Update debug mode state
+      debugMode = data.debug_mode;
+      debugModeBtn.classList.toggle('active', debugMode);
+      debugModeBtn.textContent = `Debug Mode (${debugMode ? 'ON' : 'OFF'})`;
+    }
+
+    function toggleDebugMode() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        errorDiv.textContent = "❌ Not connected. Cannot toggle debug mode.";
+        return;
+      }
+      
+      ws.send(JSON.stringify({
+        type: 'toggle_debug'
+      }));
+    }
+
+    function setResolution() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        errorDiv.textContent = "❌ Not connected. Cannot change resolution.";
+        return;
+      }
+
+      const width = parseInt(widthInput.value);
+      const height = calculateHeight(width);
+
+      if (width < 640 || width > 4096) {
+        errorDiv.textContent = "❌ Invalid width. Must be between 640 and 4096.";
+        return;
+      }
+
+      ws.send(JSON.stringify({
+        type: 'set_size',
+        width: width,
+        height: height
+      }));
+    }
+
+    function updateExposure() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      
+      const exposure = parseInt(exposureSlider.value);
+      exposureValue.textContent = exposure;
+      
+      // Debounce the updates
+      if (updateTimeout) clearTimeout(updateTimeout);
+      updateTimeout = setTimeout(() => {
+        ws.send(JSON.stringify({
+          type: 'set_exposure',
+          exposure_time: exposure
+        }));
+      }, 500);
+    }
+
+    function updateGain() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      
+      const gain = parseFloat(gainSlider.value);
+      gainValue.textContent = gain.toFixed(1);
+      
+      // Debounce the updates
+      if (updateTimeout) clearTimeout(updateTimeout);
+      updateTimeout = setTimeout(() => {
+        ws.send(JSON.stringify({
+          type: 'set_gain',
+          analogue_gain: gain
+        }));
+      }, 500);
+    }
+
     function connect() {
       errorDiv.textContent = "";
       statusSpan.textContent = "Connecting...";
+      settingsReceived = false;
+      exposureSlider.disabled = true;
+      gainSlider.disabled = true;
+      exposureValue.textContent = "Loading...";
+      exposureValue.classList.add('loading');
+      gainValue.textContent = "Loading...";
+      gainValue.classList.add('loading');
+      debugMode = false;
+      debugModeBtn.classList.remove('active');
+      debugModeBtn.textContent = "Debug Mode (OFF)";
 
       ws = new WebSocket("ws://" + location.host + "/ws");
 
@@ -101,11 +402,20 @@
       };
 
       ws.onmessage = async (event) => {
-        const image = await event.data;
-        img.src = image;
-
-        frameTimes.push(performance.now());
-        updateFPS();
+        try {
+          // Try to parse as JSON first (for settings info)
+          const data = JSON.parse(event.data);
+          if (data.type === 'camera_settings') {
+            updateCameraSettings(data);
+            return;
+          }
+        } catch (e) {
+          // If not JSON, treat as image data
+          const image = event.data;
+          img.src = image;
+          frameTimes.push(performance.now());
+          updateFPS();
+        }
       };
     }
 
@@ -119,6 +429,12 @@
         errorDiv.textContent = "❌ Failed to reconnect.";
       }
     };
+
+    setResolutionBtn.onclick = setResolution;
+    exposureSlider.oninput = updateExposure;
+    gainSlider.oninput = updateGain;
+    debugModeBtn.onclick = toggleDebugMode;
+    toggleSettingsBtn.onclick = toggleSettings;
 
     connect();
   </script>
