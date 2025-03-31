@@ -1,8 +1,6 @@
 #!/bin/bash
 
 REPO_DIR="/home/chris/rpi-long-range-video-transmission"
-TRANSMISSION_SERVICE_NAME="video-transmission.service"
-OLDE_STATUS_SERVICE_NAME="oled-status.service"
 
 cd "$REPO_DIR" || exit 1
 
@@ -23,13 +21,23 @@ if [ "$LOCAL_SHA" != "$REMOTE_SHA" ]; then
     # re-run the setup script in case any dependencies were updated
     $REPO_DIR/setup.sh
 
-    # restart the transmission service
-    sudo systemctl restart "$TRANSMISSION_SERVICE_NAME"
-    echo "$(date): Restarted $TRANSMISSION_SERVICE_NAME."
-
-    # restart the oled status service
-    sudo systemctl restart "$OLDE_STATUS_SERVICE_NAME"
-    echo "$(date): Restarted $OLDE_STATUS_SERVICE_NAME."
+    # Read configured services from YAML file
+    if [ -f "$REPO_DIR/configured_services.yml" ]; then
+        # Extract enabled services and their directories
+        while IFS= read -r line; do
+            if [[ $line =~ ^[[:space:]]*([a-zA-Z0-9-]+):[[:space:]]*$ ]]; then
+                service_name="${BASH_REMATCH[1]}"
+                # Check if service is enabled
+                if grep -A1 "^[[:space:]]*$service_name:" "$REPO_DIR/configured_services.yml" | grep -q "enabled: true"; then
+                    service_file="$service_name.service"
+                    echo "$(date): Restarting $service_file..."
+                    sudo systemctl restart "$service_file"
+                fi
+            fi
+        done < "$REPO_DIR/configured_services.yml"
+    else
+        echo "$(date): Warning: configured_services.yml not found. No services will be restarted."
+    fi
 else
     echo "$(date): No update needed."
 fi
