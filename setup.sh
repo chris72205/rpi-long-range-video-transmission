@@ -65,17 +65,31 @@ else
     fi
 fi
 
-# Ask about each service
-if ask_about_service "oled-status" "OLED status display showing system information" "y"; then
-    sed -i '/oled-status:/,/enabled:/ s/enabled: false/enabled: true/' configured_services.yml
-    echo "Setting up OLED status service..."
-    ./oled-status/setup.sh
-fi
+# Setup services based on configuration
+if [ "${NONINTERACTIVE:-0}" = "1" ]; then
+    # Non-interactive mode: use existing configuration
+    echo "Running in non-interactive mode, using existing service configuration..."
+    if is_service_enabled "oled-status"; then
+        echo "Setting up OLED status service..."
+        ./oled-status/setup.sh
+    fi
+    if is_service_enabled "video-transmission"; then
+        echo "Setting up video transmission service..."
+        ./video-transmission/setup.sh
+    fi
+else
+    # Interactive mode: ask about each service
+    if ask_about_service "oled-status" "OLED status display showing system information" "y"; then
+        sed -i '/oled-status:/,/enabled:/ s/enabled: false/enabled: true/' configured_services.yml
+        echo "Setting up OLED status service..."
+        ./oled-status/setup.sh
+    fi
 
-if ask_about_service "video-transmission" "Long range video transmission system" "y"; then
-    sed -i '/video-transmission:/,/enabled:/ s/enabled: false/enabled: true/' configured_services.yml
-    echo "Setting up video transmission service..."
-    ./video-transmission/setup.sh
+    if ask_about_service "video-transmission" "Long range video transmission system" "y"; then
+        sed -i '/video-transmission:/,/enabled:/ s/enabled: false/enabled: true/' configured_services.yml
+        echo "Setting up video transmission service..."
+        ./video-transmission/setup.sh
+    fi
 fi
 
 echo "Done setting up services!"
