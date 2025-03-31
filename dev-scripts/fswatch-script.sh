@@ -10,10 +10,10 @@ if ! ssh -q $SSH_HOST exit; then
 fi
 
 
-fswatch -0 ./ | while read -d "" event
+fswatch -0 ../ | while read -d "" event
 do
   echo "Syncing..."
-  rsync -avz ../video-transmission $SSH_HOST:~/rpi-long-range-video-transmission/video-transmission
+  rsync -avz ./ $SSH_HOST:~/rpi-long-range-video-transmission/
   echo "synced"
   echo "Restarting..."
   ssh $SSH_HOST "sudo systemctl restart video-transmission"
