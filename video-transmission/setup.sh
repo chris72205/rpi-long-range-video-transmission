@@ -1,10 +1,10 @@
 #!/bin/bash
 
-DEFAULT_SSID="Raspberry Pi AP"
-DEFAULT_PASSWORD="raspberry"
+DEFAULT_SSID="LR Video"
+DEFAULT_PASSWORD="longrangevideolongrangevideo"
 
 if ! cmp -s ~/rpi-long-range-video-transmission/video-transmission/video-transmission.service /etc/systemd/system/video-transmission.service; then
-    echo "Copying video transmission service file..."
+    echo "Copying video transmission service file...."
     sudo cp ~/rpi-long-range-video-transmission/video-transmission/video-transmission.service /etc/systemd/system/
 
     echo "Reloading systemd daemon..."
@@ -21,12 +21,17 @@ else
 fi
 
 if ! nmcli connection show | grep -q "YagiAdapter"; then
-    echo "Setting up WiFi adapter..."
-    sudo nmcli connection add type wifi ifname wlan1 con-name YagiAdapter autoconnect yes ssid $DEFAULT_SSID
-    sudo nmcli connection modify YagiAdapter 802-11-wireless.mode ap 802-11-wireless.band bg ipv4.method shared
-    sudo nmcli connection modify YagiAdapter wifi-sec.key-mgmt wpa-psk
-    sudo nmcli connection modify YagiAdapter wifi-sec.psk $DEFAULT_PASSWORD
-    sudo nmcli connection up YagiAdapter
+    sudo nmcli con add type wifi ifname wlan1 mode ap con-name YagiAdapter ssid "$DEFAULT_SSID"
+    sudo nmcli con modify YagiAdapter 802-11-wireless.band bg
+    sudo nmcli con modify YagiAdapter 802-11-wireless.channel 6
+    sudo nmcli con modify YagiAdapter ipv4.method shared
+    sudo nmcli con modify YagiAdapter 802-11-wireless-security.key-mgmt wpa-psk
+    sudo nmcli con modify YagiAdapter 802-11-wireless-security.proto rsn
+    sudo nmcli con modify YagiAdapter 802-11-wireless-security.pairwise ccmp
+    sudo nmcli con modify YagiAdapter 802-11-wireless-security.group ccmp
+    sudo nmcli con modify YagiAdapter 802-11-wireless-security.pmf disable
+    sudo nmcli con modify YagiAdapter 802-11-wireless-security.psk "$DEFAULT_PASSWORD"
+    sudo nmcli con up YagiAdapter
 else
     echo "WiFi adapter already setup; skipping"
 fi

@@ -75,39 +75,44 @@ def get_git_short_sha():
         print(f"Error getting SHA: {e}")
         return "unknown"
 
-def draw_status(lines, sha):
+def draw_status(line1, line2, clients, sha):
     draw.rectangle((0, 0, WIDTH, HEIGHT), outline=0, fill=0)
-    for i, line in enumerate(lines):
-        draw.text((0, i * 10), line[:21], font=font, fill=255)
+
+    # Line 1: wlan0 – SSID; IP
+    draw.text((0, 0), line1[:21], font=font, fill=255)
+
+    # Line 2: wlan1 – SSID
+    draw.text((0, 10), line2[:21], font=font, fill=255)
+
+    # Line 3: left = client count, right = SHA
+    client_text = f"{clients} client{'s' if clients != 1 else ''}"
+    draw.text((0, 20), client_text, font=font, fill=255)
 
     if sha:
-        # Estimate right-aligned x-position
-        text_width = len(sha) * 6  # ~6px per char in default font
-        x_pos = WIDTH - text_width
-        draw.text((x_pos, HEIGHT - 10), sha, font=font, fill=255)
-    else:
-        draw.text((0, HEIGHT - 10), "No SHA", font=font, fill=255)
+        sha_width = len(sha) * 6  # estimate width
+        draw.text((WIDTH - sha_width, 20), sha, font=font, fill=255)
 
     oled.image(image)
     oled.show()
 
+
 while True:
-    status_lines = []
-    for iface in INTERFACES[:2]:  # Only room for 2 lines
-        mode = get_mode(iface)
-        ssid = get_ssid(iface, mode)
+    # --- wlan0 (client) ---
+    iface0 = INTERFACES[0]
+    mode0 = get_mode(iface0)
+    ssid0 = get_ssid(iface0, mode0)
+    ip0 = get_ip(iface0) or "No IP"
+    line1 = f"{ssid0}; {ip0}" if mode0 == "Client" else f"{iface0}; Unknown"
 
-        if mode == "AP":
-            clients = get_client_count(iface)
-            line = f"{ssid} {clients}"
-        elif mode == "Client":
-            ip = get_ip(iface) or "No IP"
-            line = f"{ssid}; {ip}"
-        else:
-            line = f"{iface}; Unknown"
+    # --- wlan1 (AP) ---
+    iface1 = INTERFACES[1]
+    mode1 = get_mode(iface1)
+    ssid1 = get_ssid(iface1, mode1)
+    line2 = ssid1 if mode1 == "AP" else f"{iface1}; Unknown"
 
-        status_lines.append(line)
-
+    # --- Clients + SHA ---
+    clients = get_client_count(iface1) if mode1 == "AP" else 0
     sha = get_git_short_sha()
-    draw_status(status_lines, sha)
+
+    draw_status(line1, line2, clients, sha)
     sleep(REFRESH_INTERVAL)
