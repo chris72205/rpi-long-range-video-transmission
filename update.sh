@@ -19,7 +19,7 @@ if [ "$LOCAL_SHA" != "$REMOTE_SHA" ]; then
     git reset --hard origin/main
 
     # re-run the setup script in case any dependencies were updated
-    $REPO_DIR/setup.sh
+    NONINTERACTIVE=1 $REPO_DIR/setup.sh
 
     # Read configured services from YAML file
     if [ -f "$REPO_DIR/configured_services.yml" ]; then
